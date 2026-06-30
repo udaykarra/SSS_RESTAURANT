@@ -394,16 +394,15 @@ export const db = {
   },
 
   // STAFF USERS INTERFACES
-  findUser: async (username, role) => {
+  findUser: async (username) => {
     if (useMongo) {
       return await StaffUser.findOne({
-        username: { $regex: new RegExp(`^${username}$`, 'i') },
-        role
+        username: { $regex: new RegExp(`^${username}$`, 'i') }
       });
     } else {
       const data = readLocalDb();
       return data.staff_users.find(u =>
-        u.username.toLowerCase() === username.toLowerCase() && u.role === role
+        u.username.toLowerCase() === username.toLowerCase()
       );
     }
   },

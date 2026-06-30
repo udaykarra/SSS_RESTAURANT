@@ -251,10 +251,26 @@ export default function App() {
         role ? (
           <div className="staff-dashboard">
             <header className="header no-print">
-              <div className="header-content">
-                <div className="header-brand">
-                  <h1>SSS Staff Dashboard</h1>
-                  <p>Logged in as: <strong style={{ textTransform: 'uppercase', color: 'var(--primary)' }}>{staffName} ({role})</strong></p>
+              <div className="header-content" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                <div className="header-brand" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <img 
+                    src="/logo.jpg" 
+                    alt="SSS Logo" 
+                    style={{ width: '40px', height: '40px', borderRadius: '50%', border: '2px solid var(--primary)', objectFit: 'cover' }} 
+                  />
+                  <div>
+                    <h1 style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                      SSS Family Restaurant
+                      <span style={{ fontSize: '13px', fontWeight: 'normal', opacity: 0.8, color: 'var(--text-muted)' }}>
+                        📞 9985177939
+                      </span>
+                    </h1>
+                    <p style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <span>Beside Reliance Smart, Ranastalam</span>
+                      <span style={{ color: 'var(--text-muted)' }}>|</span>
+                      <span>Staff: <strong style={{ textTransform: 'uppercase', color: 'var(--primary)' }}>{staffName} ({role})</strong></span>
+                    </p>
+                  </div>
                 </div>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                   <div className="live-pill">
@@ -272,9 +288,18 @@ export default function App() {
             </header>
 
             <div className="staff-nav no-print">
-              <div className="staff-nav-inner">
+              <div className="staff-nav-inner" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                {selectedStaffRoom && staffTab === 'rooms' && (
+                  <button 
+                    className="btn btn-outline btn-sm" 
+                    onClick={() => setSelectedStaffRoom(null)}
+                    style={{ padding: '6px 12px', borderRadius: 'var(--radius-sm)' }}
+                  >
+                    ← Back
+                  </button>
+                )}
                 <div className={`nav-tab ${staffTab === 'rooms' ? 'active' : ''}`} onClick={() => setStaffTab('rooms')}>
-                  Running Tabs
+                  DineIN
                   {Object.keys(activeRoomTabs).length > 0 && (
                     <span className="nav-badge">{Object.keys(activeRoomTabs).length}</span>
                   )}
@@ -486,17 +511,29 @@ function RoomDetailView({ roomId, role, tab, menu, onBack, onSaveTab, onMarkItem
   const isWaiterOrAdmin = role === 'waiter' || role === 'admin';
   const grandTotal = isActive ? tab.items.reduce((sum, i) => sum + (i.price * i.qty), 0) : 0;
 
-  // Filter items based on role
-  const cookItems = tab && tab.items ? tab.items.filter(i => i.sentToCook) : [];
-  const itemsToShow = isCook ? cookItems : (tab && tab.items ? tab.items : []);
-  const hasUnplacedItems = isActive && tab.items.some(i => !i.sentToCook);
-  const showEmpty = isCook ? cookItems.length === 0 : !isActive;
-
   // POS Add variables
   const [posSearch, setPosSearch] = useState('');
   const [posCategory, setPosCategory] = useState('');
   const [posVegFilter, setPosVegFilter] = useState('veg'); // 'veg' | 'non-veg'
   const [showReceiptBill, setShowReceiptBill] = useState(null);
+  const [detailSubTab, setDetailSubTab] = useState('selected'); // 'selected' | 'placed'
+
+  // Filter items based on role
+  const cookItems = tab && tab.items ? tab.items.filter(i => i.sentToCook) : [];
+  const stagedItems = tab && tab.items ? tab.items.filter(i => i.sentToCook === false) : [];
+  const placedItems = tab && tab.items ? tab.items.filter(i => i.sentToCook !== false) : [];
+
+  const itemsToShow = isCook 
+    ? cookItems 
+    : (detailSubTab === 'selected' ? stagedItems : placedItems);
+
+  const selectedCount = stagedItems.length;
+  const placedCount = placedItems.length;
+
+  const hasUnplacedItems = isActive && stagedItems.length > 0;
+  const showEmpty = isCook 
+    ? cookItems.length === 0 
+    : (detailSubTab === 'selected' ? selectedCount === 0 : placedCount === 0);
 
 
 
@@ -537,9 +574,16 @@ function RoomDetailView({ roomId, role, tab, menu, onBack, onSaveTab, onMarkItem
         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px', maxWidth: '600px', margin: '0 auto' }}>
           {/* Summary Details */}
           <div className="card" style={{ padding: '20px' }}>
-            <h2 style={{ fontFamily: 'Outfit', fontWeight: 900, fontSize: '18px', marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
-              Checkout Summary: {roomColor.name}
-            </h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+              <img 
+                src="/logo.jpg" 
+                alt="SSS Logo" 
+                style={{ width: '40px', height: '40px', borderRadius: '50%', border: '2px solid var(--primary)', objectFit: 'cover' }} 
+              />
+              <h2 style={{ fontFamily: 'Outfit', fontWeight: 900, fontSize: '18px', margin: 0 }}>
+                Checkout Summary: {roomColor.name}
+              </h2>
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '13px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Room/Table:</span>
@@ -667,6 +711,7 @@ function RoomDetailView({ roomId, role, tab, menu, onBack, onSaveTab, onMarkItem
       const res = await fetch(`/api/tabs/${roomId}/place-order`, { method: 'POST' });
       if (res.ok) {
         pollServerData();
+        setDetailSubTab('placed');
         showToast("Order placed to kitchen successfully! 👨‍🍳");
       }
     } catch (e) {
@@ -712,124 +757,10 @@ function RoomDetailView({ roomId, role, tab, menu, onBack, onSaveTab, onMarkItem
 
   return (
     <div style={{ paddingBottom: isWaiterOrAdmin ? '100px' : '40px' }}>
-      <div className="no-print" style={{ marginBottom: '16px' }}>
-        <button className="btn btn-outline btn-sm" onClick={onBack}>← Back to Rooms Grid</button>
-      </div>
 
-      <div className="ticket-header" style={{
-        backgroundColor: roomColor.lightColor,
-        border: `2px solid ${roomColor.border}`,
-        color: roomColor.darkColor
-      }}>
-        <h2>{roomColor.name} Running Tab</h2>
-        <span className="status">{isActive ? 'Tab Active' : 'Empty Tab'}</span>
-      </div>
-
-      {showEmpty ? (
-        <div className="empty-pane">
-          <p>{isCook ? 'No active kitchen tickets for this room.' : 'No items in this room\'s tab.'}</p>
-        </div>
-      ) : (
-        <div className="menu-filters" style={{ padding: '16px', marginBottom: '20px' }}>
-
-
-          <h3 style={{ fontSize: '14px', marginBottom: '8px' }}>Current Items on Tab</h3>
-          <div className="cart-items-list">
-            {itemsToShow.map(i => (
-              <div key={i.lineId} className="cart-line" style={{ opacity: i.sentToCook ? 1 : 0.7 }}>
-                <div className="cart-line-details">
-                  <h4 style={{ fontSize: '14px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                    {(i.category !== 'Roti & Breads' && i.category !== 'Beverages') && (
-                      <div className={`veg-badge ${i.veg ? '' : 'non-veg'}`}>
-                        <span className={i.veg ? 'dot' : 'triangle'}></span>
-                      </div>
-                    )}
-                    {i.name} {i.size && `(${i.size})`}
-                    <span className={`source-badge ${i.source}`}>{i.source === 'customer' ? 'Guest' : 'Staff'}</span>
-                    {!i.sentToCook && (
-                      <span className="room-badge room-color-3" style={{ fontSize: '10px' }}>Staged (Unplaced)</span>
-                    )}
-                  </h4>
-                  {i.notes && <p className="notes-text">{i.notes}</p>}
-                </div>
-                
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  {isWaiterOrAdmin ? (
-                    <>
-                      <div className="stepper">
-                        <button className="stepper-btn" onClick={() => updateQty(i.lineId, -1)}>-</button>
-                        <span className="stepper-val">{i.qty}</span>
-                        <button className="stepper-btn" onClick={() => updateQty(i.lineId, 1)}>+</button>
-                      </div>
-                      <span className="cart-line-price" style={{ minWidth: '50px', textAlign: 'right' }}>₹{i.price * i.qty}</span>
-                      
-                      {i.sentToCook && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '6px' }}>
-                          <span style={{ fontSize: '11px', fontWeight: 'bold', color: i.done ? 'var(--veg-color)' : 'var(--text-muted)' }}>
-                            {i.done ? '👨‍🍳 Cooked' : '⏳ Prep'}
-                          </span>
-                          {i.done ? (
-                            i.served ? (
-                              <button 
-                                className="btn btn-sm" 
-                                style={{ padding: '3px 6px', fontSize: '11px', backgroundColor: '#d4efdf', color: '#196f3d', border: '1px solid #196f3d', borderRadius: '4px' }}
-                                onClick={() => handleToggleServed(i.lineId, false)}
-                              >
-                                Served 🍽️ ✓
-                              </button>
-                            ) : (
-                              <button 
-                                className="btn btn-outline btn-sm" 
-                                style={{ padding: '3px 6px', fontSize: '11px', borderRadius: '4px' }}
-                                onClick={() => handleToggleServed(i.lineId, true)}
-                              >
-                                Mark Served
-                              </button>
-                            )
-                          ) : (
-                            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic', marginLeft: '4px' }}>
-                              (Waiting Cook)
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <span className="cook-line-qty" style={{
-                        backgroundColor: i.done ? '#d4efdf' : '',
-                        color: i.done ? '#196f3d' : ''
-                      }}>
-                        {i.qty} Portion{i.qty > 1 ? 's' : ''}
-                      </span>
-                      {i.done ? (
-                        <span style={{ fontWeight: 700, color: 'var(--veg-color)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px', marginLeft: '6px' }}>
-                          ✅ Cooked
-                        </span>
-                      ) : (
-                        <button className="btn btn-primary btn-sm" style={{ backgroundColor: 'var(--veg-color)', padding: '4px 10px', marginLeft: '6px' }} onClick={() => onMarkItemDone(i.lineId)}>Done ✔️</button>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {isWaiterOrAdmin && hasUnplacedItems && (
-            <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '2px dashed var(--border-color)', display: 'flex', justifyContent: 'center' }}>
-              <button className="btn btn-primary" style={{ width: '100%', maxWidth: '300px' }} onClick={handlePlaceOrderToKitchen}>
-                Place Order to Kitchen 👨‍🍳
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* POS Quick Add (Waiter / Admin) */}
+      {/* POS Quick Add (Waiter / Admin) - Rendered ABOVE the active items list */}
       {isWaiterOrAdmin && (
         <div className="pos-panel no-print fade-in">
-          <div className="pos-header">Add Items to {roomColor.name} Tab</div>
           <div className="menu-filters" style={{ border: 'none', boxShadow: 'none', padding: 0, marginBottom: '12px' }}>
             <div className="search-wrapper">
               <span className="search-icon">🔍</span>
@@ -919,7 +850,7 @@ function RoomDetailView({ roomId, role, tab, menu, onBack, onSaveTab, onMarkItem
                             style={{ justifyContent: 'space-between', fontSize: '11px', padding: '4px 8px' }}
                             onClick={() => handlePOSAdd(item.name, sizeName, sizePrice, item.veg, posCategory)}
                           >
-                            <span>Add {sizeName}</span>
+                            <span style={{ textTransform: 'capitalize' }}>{sizeName}</span>
                             <strong>₹{sizePrice}</strong>
                           </button>
                         ))}
@@ -927,10 +858,9 @@ function RoomDetailView({ roomId, role, tab, menu, onBack, onSaveTab, onMarkItem
                     ) : (
                       <button 
                         className="btn btn-outline btn-sm"
-                        style={{ width: '100%', justifyContent: 'space-between', fontSize: '11px', padding: '4px 8px' }}
+                        style={{ width: '100%', justifyContent: 'center', fontSize: '11px', padding: '4px 8px' }}
                         onClick={() => handlePOSAdd(item.name, null, item.price, item.veg, posCategory)}
                       >
-                        <span>Add Regular</span>
                         <strong>₹{item.price}</strong>
                       </button>
                     )}
@@ -945,6 +875,149 @@ function RoomDetailView({ roomId, role, tab, menu, onBack, onSaveTab, onMarkItem
               );
             })()}
           </div>
+        </div>
+      )}
+
+      {/* Active items list / empty pane - Rendered BELOW the menu */}
+      {isWaiterOrAdmin && isActive && (
+        <div className="sub-tabs-container no-print" style={{ display: 'flex', borderBottom: '2px solid var(--border-color)', marginBottom: '16px', gap: '8px', padding: '0 16px' }}>
+          <button 
+            className={`sub-tab-btn ${detailSubTab === 'selected' ? 'active' : ''}`}
+            style={{
+              padding: '8px 16px',
+              fontSize: '13px',
+              fontWeight: 'bold',
+              border: 'none',
+              background: 'none',
+              borderBottom: detailSubTab === 'selected' ? '3px solid var(--primary)' : '3px solid transparent',
+              color: detailSubTab === 'selected' ? 'var(--primary)' : 'var(--text-muted)',
+              cursor: 'pointer'
+            }}
+            onClick={() => setDetailSubTab('selected')}
+          >
+            Items Selected ({selectedCount})
+          </button>
+          <button 
+            className={`sub-tab-btn ${detailSubTab === 'placed' ? 'active' : ''}`}
+            style={{
+              padding: '8px 16px',
+              fontSize: '13px',
+              fontWeight: 'bold',
+              border: 'none',
+              background: 'none',
+              borderBottom: detailSubTab === 'placed' ? '3px solid var(--primary)' : '3px solid transparent',
+              color: detailSubTab === 'placed' ? 'var(--primary)' : 'var(--text-muted)',
+              cursor: 'pointer'
+            }}
+            onClick={() => setDetailSubTab('placed')}
+          >
+            Orders Placed ({placedCount})
+          </button>
+        </div>
+      )}
+
+      {showEmpty ? (
+        <div className="empty-pane">
+          <p>
+            {isCook 
+              ? 'No active kitchen tickets for this room.' 
+              : (detailSubTab === 'selected' ? 'No items selected yet. Choose items from the menu above.' : 'No orders placed yet.')}
+          </p>
+        </div>
+      ) : (
+        <div className="menu-filters" style={{ padding: '16px', marginBottom: '20px' }}>
+          <h3 style={{ fontSize: '14px', marginBottom: '8px' }}>
+            {detailSubTab === 'selected' ? 'Items Selected' : 'Orders Placed'}
+          </h3>
+          <div className="cart-items-list">
+            {itemsToShow.map(i => (
+              <div key={i.lineId} className="cart-line" style={{ opacity: i.sentToCook ? 1 : 0.7 }}>
+                <div className="cart-line-details">
+                  <h4 style={{ fontSize: '14px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                    {(i.category !== 'Roti & Breads' && i.category !== 'Beverages') && (
+                      <div className={`veg-badge ${i.veg ? '' : 'non-veg'}`}>
+                        <span className={i.veg ? 'dot' : 'triangle'}></span>
+                      </div>
+                    )}
+                    {i.name} {i.size && `(${i.size})`}
+                    <span className={`source-badge ${i.source}`}>{i.source === 'customer' ? 'Guest' : 'Staff'}</span>
+                    {!i.sentToCook && (
+                      <span className="room-badge room-color-3" style={{ fontSize: '10px' }}>Staged (Unplaced)</span>
+                    )}
+                  </h4>
+                  {i.notes && <p className="notes-text">{i.notes}</p>}
+                </div>
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  {isWaiterOrAdmin ? (
+                    <>
+                      <div className="stepper">
+                        <button className="stepper-btn" onClick={() => updateQty(i.lineId, -1)}>-</button>
+                        <span className="stepper-val">{i.qty}</span>
+                        <button className="stepper-btn" onClick={() => updateQty(i.lineId, 1)}>+</button>
+                      </div>
+                      <span className="cart-line-price" style={{ minWidth: '50px', textAlign: 'right' }}>₹{i.price * i.qty}</span>
+                      
+                      {i.sentToCook && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '6px' }}>
+                          <span style={{ fontSize: '11px', fontWeight: 'bold', color: i.done ? 'var(--veg-color)' : 'var(--text-muted)' }}>
+                            {i.done ? '👨‍🍳 Cooked' : '⏳ Prep'}
+                          </span>
+                          {i.done ? (
+                            i.served ? (
+                              <button 
+                                className="btn btn-sm" 
+                                style={{ padding: '3px 6px', fontSize: '11px', backgroundColor: '#d4efdf', color: '#196f3d', border: '1px solid #196f3d', borderRadius: '4px' }}
+                                onClick={() => handleToggleServed(i.lineId, false)}
+                              >
+                                Served 🍽️ ✓
+                              </button>
+                            ) : (
+                              <button 
+                                className="btn btn-outline btn-sm" 
+                                style={{ padding: '3px 6px', fontSize: '11px', borderRadius: '4px' }}
+                                onClick={() => handleToggleServed(i.lineId, true)}
+                              >
+                                Mark Served
+                              </button>
+                            )
+                          ) : (
+                            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic', marginLeft: '4px' }}>
+                              (Waiting Cook)
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <span className="cook-line-qty" style={{
+                        backgroundColor: i.done ? '#d4efdf' : '',
+                        color: i.done ? '#196f3d' : ''
+                      }}>
+                        {i.qty} Portion{i.qty > 1 ? 's' : ''}
+                      </span>
+                      {i.done ? (
+                        <span style={{ fontWeight: 700, color: 'var(--veg-color)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px', marginLeft: '6px' }}>
+                          ✅ Cooked
+                        </span>
+                      ) : (
+                        <button className="btn btn-primary btn-sm" style={{ backgroundColor: 'var(--veg-color)', padding: '4px 10px', marginLeft: '6px' }} onClick={() => onMarkItemDone(i.lineId)}>Done ✔️</button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {isWaiterOrAdmin && hasUnplacedItems && (
+            <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '2px dashed var(--border-color)', display: 'flex', justifyContent: 'center' }}>
+              <button className="btn btn-primary" style={{ width: '100%', maxWidth: '300px' }} onClick={handlePlaceOrderToKitchen}>
+                Order
+              </button>
+            </div>
+          )}
         </div>
       )}
 

@@ -2,12 +2,11 @@ import React, { useState } from 'react';
 
 export default function LoginView({ onLoginSuccess, showToast }) {
   const [loginStep, setLoginStep] = useState('login'); // 'login' | 'register_request'
-  const [selectedRole, setSelectedRole] = useState('cook'); // 'cook' | 'waiter' | 'admin'
   
   // Inputs
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [regRole, setRegRole] = useState('waiter');
+  const [regRole, setRegRole] = useState('');
   const [regUsername, setRegUsername] = useState('');
   const [regPassword, setRegPassword] = useState('');
 
@@ -27,8 +26,7 @@ export default function LoginView({ onLoginSuccess, showToast }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           username: username.trim(), 
-          password, 
-          role: selectedRole 
+          password
         })
       });
 
@@ -81,12 +79,24 @@ export default function LoginView({ onLoginSuccess, showToast }) {
     <div className="login-root-wrapper">
       <header className="header">
         <div className="header-content">
-          <div className="header-brand">
-            <h1>SSS Family Restaurant</h1>
-            <p>{loginStep === 'login' ? 'Staff Login Portal' : 'Staff Registration Portal'}</p>
+          <div className="header-brand" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <img 
+              src="/logo.jpg" 
+              alt="SSS Logo" 
+              style={{ width: '40px', height: '40px', borderRadius: '50%', border: '2px solid var(--primary)', objectFit: 'cover' }} 
+            />
+            <div>
+              <h1 style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                SSS Family Restaurant
+                <span style={{ fontSize: '13px', fontWeight: 'normal', opacity: 0.8, color: 'var(--text-muted)' }}>
+                  📞 9985177939
+                </span>
+              </h1>
+              <p>{loginStep === 'login' ? 'Staff Login Portal' : 'Staff Registration Portal'}</p>
+            </div>
           </div>
           <button className="btn btn-outline btn-sm" onClick={() => window.location.href = '/'}>
-            ← Guest Menu
+            ← Menu
           </button>
         </div>
       </header>
@@ -95,26 +105,11 @@ export default function LoginView({ onLoginSuccess, showToast }) {
         <div style={{ maxWidth: '480px', margin: '40px auto 0', backgroundColor: '#fff', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '24px', boxShadow: 'var(--shadow-md)' }}>
           {loginStep === 'login' ? (
             <>
-              <h2 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '20px', textAlign: 'center' }}>Choose Portal Role</h2>
-              
-              <div className="login-grid" style={{ marginBottom: '20px' }}>
-                <div className={`role-card ${selectedRole === 'cook' ? 'selected' : ''}`} onClick={() => { setSelectedRole('cook'); setErrorMsg(''); }}>
-                  <span className="role-icon">👨‍🍳</span>
-                  <h3>Cook</h3>
-                </div>
-                <div className={`role-card ${selectedRole === 'waiter' ? 'selected' : ''}`} onClick={() => { setSelectedRole('waiter'); setErrorMsg(''); }}>
-                  <span className="role-icon">🤵</span>
-                  <h3>Waiter</h3>
-                </div>
-                <div className={`role-card ${selectedRole === 'admin' ? 'selected' : ''}`} onClick={() => { setSelectedRole('admin'); setErrorMsg(''); }}>
-                  <span className="role-icon">🛠️</span>
-                  <h3>Admin</h3>
-                </div>
-              </div>
+              <h2 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '20px', textAlign: 'center' }}>Staff Login</h2>
 
               <form onSubmit={handleLoginSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div className="input-group" style={{ marginBottom: 0 }}>
-                  <label>Username for {selectedRole.toUpperCase()}</label>
+                  <label>Username</label>
                   <input 
                     type="text" 
                     className="form-input" 
@@ -152,7 +147,7 @@ export default function LoginView({ onLoginSuccess, showToast }) {
                 
                 {errorMsg && <p className="login-error">{errorMsg}</p>}
                 
-                <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>Access Portal</button>
+                <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>Log in</button>
                 
                 <p style={{ fontSize: '12px', textAlign: 'center', color: 'var(--text-muted)', marginTop: '8px' }}>
                   New staff member? <a href="#" onClick={(e) => { e.preventDefault(); setLoginStep('register_request'); setErrorMsg(''); }} style={{ color: 'var(--primary)', fontWeight: 'bold', textDecoration: 'underline' }}>Request registration</a>
@@ -172,6 +167,7 @@ export default function LoginView({ onLoginSuccess, showToast }) {
                     onChange={(e) => setRegRole(e.target.value)}
                     required
                   >
+                    <option value="" disabled>Select Role...</option>
                     <option value="waiter">Waiter / Waitress</option>
                     <option value="cook">Kitchen Chef / Cook</option>
                     <option value="admin">Restaurant Admin</option>

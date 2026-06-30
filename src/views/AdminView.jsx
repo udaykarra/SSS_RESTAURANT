@@ -1,30 +1,31 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 export default function AdminView({ viewsTab, bills = [], menu = [], staffUsers = [], pendingRegistrations = [], onRefreshUsers, onRefreshMenu, showToast }) {
-  
+
   // STATS STATE
-  const [statsFilter, setStatsFilter] = useState('all'); // 'all' | 'today'
+  const [statsStartDate, setStatsStartDate] = useState(() => {
+    const d = new Date();
+    const offset = d.getTimezoneOffset();
+    const localDate = new Date(d.getTime() - (offset * 60 * 1000));
+    return localDate.toISOString().split('T')[0];
+  });
+  const [statsEndDate, setStatsEndDate] = useState(() => {
+    const d = new Date();
+    const offset = d.getTimezoneOffset();
+    const localDate = new Date(d.getTime() - (offset * 60 * 1000));
+    return localDate.toISOString().split('T')[0];
+  });
 
   // MENU EDITOR STATE
   const [menuEditorCategoryIdx, setMenuEditorCategoryIdx] = useState(0);
   const [menuVegFilter, setMenuVegFilter] = useState('veg'); // 'veg' | 'non-veg'
   const [newPrices, setNewPrices] = useState({}); // key: itemName-size, value: priceInputValue
 
-  useEffect(() => {
-    if (menu && menu.length > 0) {
-      const activeCat = menu[menuEditorCategoryIdx];
-      if (activeCat && (activeCat.category === 'Roti & Breads' || activeCat.category === 'Beverages')) {
-        setMenuVegFilter('all');
-      } else if (menuVegFilter === 'all') {
-        setMenuVegFilter('veg');
-      }
-    }
-  }, [menu, menuEditorCategoryIdx]);
-
   // USERS MANAGEMENT STATE
   const [directUser, setDirectUser] = useState('');
   const [directPass, setDirectPass] = useState('');
   const [directRole, setDirectRole] = useState('waiter');
+  const [staffSubTab, setStaffSubTab] = useState('active'); // 'active' | 'pending'
 
   // QR STATE
   const [qrBaseOverride, setQrBaseOverride] = useState('');
@@ -32,11 +33,17 @@ export default function AdminView({ viewsTab, bills = [], menu = [], staffUsers 
 
   // 1. STATS TAB COMPUTATIONS
   const getFilteredBills = () => {
-    if (statsFilter === 'today') {
-      const todayStr = new Date().toDateString();
-      return bills.filter(b => new Date(b.completedAt).toDateString() === todayStr);
-    }
-    return bills;
+    return bills.filter(b => {
+      if (!b.completedAt) return false;
+      const compDate = new Date(b.completedAt);
+      const offset = compDate.getTimezoneOffset();
+      const localDate = new Date(compDate.getTime() - (offset * 60 * 1000));
+      const compDateStr = localDate.toISOString().split('T')[0];
+
+      if (statsStartDate && compDateStr < statsStartDate) return false;
+      if (statsEndDate && compDateStr > statsEndDate) return false;
+      return true;
+    });
   };
 
   const computeStats = () => {
@@ -47,36 +54,18 @@ export default function AdminView({ viewsTab, bills = [], menu = [], staffUsers 
 
     // Best sellers
     const itemSales = {};
-    const categorySales = {};
     list.forEach(b => {
       b.items.forEach(item => {
         const itemKey = item.name + (item.size ? ` (${item.size})` : '');
         itemSales[itemKey] = (itemSales[itemKey] || 0) + item.qty;
-        
-        const cat = item.category || 'Other';
-        categorySales[cat] = (categorySales[cat] || 0) + (item.price * item.qty);
       });
     });
 
-    let bestItem = 'N/A';
-    let bestItemQty = 0;
-    Object.entries(itemSales).forEach(([name, qty]) => {
-      if (qty > bestItemQty) {
-        bestItem = name;
-        bestItemQty = qty;
-      }
-    });
+    const sortedItemSales = Object.entries(itemSales)
+      .map(([name, qty]) => ({ name, qty }))
+      .sort((a, b) => b.qty - a.qty);
 
-    let bestCat = 'N/A';
-    let bestCatSales = 0;
-    Object.entries(categorySales).forEach(([name, sales]) => {
-      if (sales > bestCatSales) {
-        bestCat = name;
-        bestCatSales = sales;
-      }
-    });
-
-    return { totalSales, orderCount, aov, bestItem, bestCat };
+    return { totalSales, orderCount, aov, sortedItemSales };
   };
 
   const stats = computeStats();
@@ -144,6 +133,7 @@ export default function AdminView({ viewsTab, bills = [], menu = [], staffUsers 
         setDirectUser('');
         setDirectPass('');
         onRefreshUsers();
+        setStaffSubTab('active');
         showToast(`Directly registered "${directUser}" successfully!`);
       } else {
         const err = await res.json();
@@ -209,7 +199,7 @@ export default function AdminView({ viewsTab, bills = [], menu = [], staffUsers 
     '6': { name: 'Room 6', color: '#e67e22' },
     'takeaway': { name: 'Takeaway', color: '#16a085' }
   };
-  
+
   const rooms = ['1', '2', '3', '4', '5', '6', 'takeaway'];
 
   // Redraw QR code canvases when URL override input changes
@@ -298,20 +288,71 @@ export default function AdminView({ viewsTab, bills = [], menu = [], staffUsers 
   if (viewsTab === 'stats') {
     return (
       <div className="fade-in" style={{ paddingBottom: '40px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: 800 }}>Restaurant Sales Statistics</h2>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button 
-              className={`btn btn-sm ${statsFilter === 'all' ? 'btn-primary' : 'btn-outline'}`}
-              onClick={() => setStatsFilter('all')}
+        {/* Date Range Selector */}
+        <div style={{ backgroundColor: '#fff', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '16px', marginBottom: '24px', boxShadow: 'var(--shadow-sm)', display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <label style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--text-muted)' }}>From Date</label>
+            <input
+              type="date"
+              className="form-input"
+              style={{ width: '150px', padding: '6px 12px', fontSize: '13px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}
+              value={statsStartDate}
+              onChange={(e) => setStatsStartDate(e.target.value)}
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <label style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--text-muted)' }}>To Date</label>
+            <input
+              type="date"
+              className="form-input"
+              style={{ width: '150px', padding: '6px 12px', fontSize: '13px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}
+              value={statsEndDate}
+              onChange={(e) => setStatsEndDate(e.target.value)}
+            />
+          </div>
+          <div style={{ alignSelf: 'flex-end', display: 'flex', gap: '8px' }}>
+            <button
+              className="btn btn-outline btn-sm"
+              style={{ padding: '8px 12px' }}
+              onClick={() => {
+                const d = new Date();
+                const offset = d.getTimezoneOffset();
+                const todayStr = new Date(d.getTime() - (offset * 60 * 1000)).toISOString().split('T')[0];
+                setStatsStartDate(todayStr);
+                setStatsEndDate(todayStr);
+              }}
             >
-              All Time
+              ☀️ Today
             </button>
-            <button 
-              className={`btn btn-sm ${statsFilter === 'today' ? 'btn-primary' : 'btn-outline'}`}
-              onClick={() => setStatsFilter('today')}
+            <button
+              className="btn btn-outline btn-sm"
+              style={{ padding: '8px 12px' }}
+              onClick={() => {
+                const d = new Date();
+                d.setDate(d.getDate() - 1);
+                const offset = d.getTimezoneOffset();
+                const yesterdayStr = new Date(d.getTime() - (offset * 60 * 1000)).toISOString().split('T')[0];
+                setStatsStartDate(yesterdayStr);
+                setStatsEndDate(yesterdayStr);
+              }}
             >
-              Today Only
+              ◀️ Yesterday
+            </button>
+            <button
+              className="btn btn-outline btn-sm"
+              style={{ padding: '8px 12px' }}
+              onClick={() => {
+                const d = new Date();
+                d.setDate(d.getDate() - 30);
+                const offset = d.getTimezoneOffset();
+                const pastStr = new Date(d.getTime() - (offset * 60 * 1000)).toISOString().split('T')[0];
+                const today = new Date();
+                const todayStr = new Date(today.getTime() - (today.getTimezoneOffset() * 60 * 1000)).toISOString().split('T')[0];
+                setStatsStartDate(pastStr);
+                setStatsEndDate(todayStr);
+              }}
+            >
+              🗓️ Last 30 Days
             </button>
           </div>
         </div>
@@ -326,48 +367,31 @@ export default function AdminView({ viewsTab, bills = [], menu = [], staffUsers 
             <p>Total Sales count</p>
             <p>{stats.orderCount}</p>
           </div>
-          <div className="stat-card">
-            <p>Average Order Value (AOV)</p>
-            <p>₹{stats.aov}</p>
-          </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', marginBottom: '30px' }}>
-          <div className="card" style={{ padding: '18px' }}>
-            <h3 style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '8px' }}>🔥 Top Selling Dish</h3>
-            <p style={{ fontSize: '18px', fontWeight: 900 }}>{stats.bestItem}</p>
-          </div>
-          <div className="card" style={{ padding: '18px' }}>
-            <h3 style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '8px' }}>🍛 Highest Revenue Category</h3>
-            <p style={{ fontSize: '18px', fontWeight: 900 }}>{stats.bestCat}</p>
-          </div>
-        </div>
-
-        {/* Audit Tables List */}
-        <div className="card" style={{ padding: '18px' }}>
-          <h3 style={{ fontSize: '14px', borderBottom: '1px solid var(--border-light)', paddingBottom: '8px', marginBottom: '12px' }}>Revenue Audit Logs</h3>
-          {getFilteredBills().length === 0 ? (
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic' }}>No completed orders recorded yet.</p>
+        {/* Item Sales Rank Table */}
+        <div className="card" style={{ padding: '18px', marginBottom: '24px' }}>
+          <h3 style={{ fontSize: '14px', borderBottom: '1px solid var(--border-light)', paddingBottom: '8px', marginBottom: '12px' }}>
+            📊 Items Sold
+          </h3>
+          {stats.sortedItemSales.length === 0 ? (
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic' }}>No sales recorded for this period.</p>
           ) : (
-            <div style={{ overflowX: auto }}>
+            <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
                 <thead>
                   <tr style={{ borderBottom: '2px solid var(--border-color)', color: 'var(--text-muted)', fontWeight: 'bold' }}>
-                    <th style={{ padding: '8px' }}>Bill ID</th>
-                    <th style={{ padding: '8px' }}>Room</th>
-                    <th style={{ padding: '8px' }}>Time Completed</th>
-                    <th style={{ padding: '8px' }}>Items Summary</th>
-                    <th style={{ padding: '8px', textAlign: 'right' }}>Total Amount</th>
+                    <th style={{ padding: '8px' }}>Rank</th>
+                    <th style={{ padding: '8px' }}>Item Name</th>
+                    <th style={{ padding: '8px', textAlign: 'right' }}>Units Sold</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {getFilteredBills().map(b => (
-                    <tr key={b.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                      <td style={{ padding: '8px', fontWeight: 700 }}>#{b.id.slice(-6)}</td>
-                      <td style={{ padding: '8px', textTransform: 'uppercase' }}>Room {b.roomId === 'takeaway' ? 'Takeaway' : b.roomId}</td>
-                      <td style={{ padding: '8px', color: 'var(--text-muted)' }}>{new Date(b.completedAt).toLocaleString()}</td>
-                      <td style={{ padding: '8px' }}>{b.items.map(i => `${i.name} (${i.qty})`).join(', ')}</td>
-                      <td style={{ padding: '8px', textAlign: 'right', fontWeight: 'bold', color: 'var(--primary)' }}>₹{b.total}</td>
+                  {stats.sortedItemSales.map((item, idx) => (
+                    <tr key={item.name} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                      <td style={{ padding: '8px', fontWeight: 'bold', color: idx === 0 ? 'var(--primary)' : 'var(--text-muted)' }}>#{idx + 1}</td>
+                      <td style={{ padding: '8px', fontWeight: 600 }}>{item.name}</td>
+                      <td style={{ padding: '8px', textAlign: 'right', fontWeight: 'bold', fontSize: '13px' }}>{item.qty}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -375,27 +399,52 @@ export default function AdminView({ viewsTab, bills = [], menu = [], staffUsers 
             </div>
           )}
         </div>
+
+
       </div>
     );
   }
 
   // 2. MENU OVERRIDES VIEW
   if (viewsTab === 'menu') {
-    const activeCategoryDoc = menu[menuEditorCategoryIdx];
     return (
-      <div className="fade-in" style={{ paddingBottom: '40px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: 800 }}>Database Menu Customizations</h2>
-          <button className="btn btn-outline btn-sm" style={{ borderColor: 'var(--nonveg-color)', color: 'var(--nonveg-color)' }} onClick={handleResetMenu}>
-            Reset Menu to Seed Defaults 🔄
+      <div className="fade-in" style={{ paddingBottom: '40px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        
+        {/* Type of Items Veg Filter Bar */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+          <button
+            className={`btn btn-sm ${menuVegFilter === 'veg' ? 'btn-primary' : 'btn-outline'}`}
+            style={{
+              backgroundColor: menuVegFilter === 'veg' ? 'var(--veg-color)' : '',
+              borderColor: menuVegFilter === 'veg' ? 'var(--veg-color)' : '',
+              color: menuVegFilter === 'veg' ? '#fff' : '',
+              padding: '8px 16px',
+              fontSize: '13px'
+            }}
+            onClick={() => setMenuVegFilter('veg')}
+          >
+            🟢 Pure Veg
+          </button>
+          <button
+            className={`btn btn-sm ${menuVegFilter === 'non-veg' ? 'btn-primary' : 'btn-outline'}`}
+            style={{
+              backgroundColor: menuVegFilter === 'non-veg' ? 'var(--nonveg-color)' : '',
+              borderColor: menuVegFilter === 'non-veg' ? 'var(--nonveg-color)' : '',
+              color: menuVegFilter === 'non-veg' ? '#fff' : '',
+              padding: '8px 16px',
+              fontSize: '13px'
+            }}
+            onClick={() => setMenuVegFilter('non-veg')}
+          >
+            🔴 Non-Veg
           </button>
         </div>
 
-        {/* Categories Tab Selector */}
-        <div className="category-scroll" style={{ position: 'static', marginBottom: '20px', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-sm)', boxShadow: 'none' }}>
+        {/* Categories Tab Selector (Scrollable, side-by-side like home page menu) */}
+        <div className="category-scroll" style={{ position: 'static', marginBottom: '12px', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-sm)', boxShadow: 'none' }}>
           <div className="category-scroll-inner">
             {menu.map((cat, idx) => (
-              <span 
+              <span
                 key={cat.category}
                 className={`chip ${menuEditorCategoryIdx === idx ? 'active' : ''}`}
                 onClick={() => setMenuEditorCategoryIdx(idx)}
@@ -406,161 +455,117 @@ export default function AdminView({ viewsTab, bills = [], menu = [], staffUsers 
           </div>
         </div>
 
-        {/* Veg / Non-Veg Menu bar in Overrides */}
-        {activeCategoryDoc && activeCategoryDoc.category !== 'Roti & Breads' && activeCategoryDoc.category !== 'Beverages' && (
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
-            <button 
-              className={`btn btn-sm ${menuVegFilter === 'veg' ? 'btn-primary' : 'btn-outline'}`}
-              style={{
-                padding: '6px 12px',
-                fontSize: '12px',
-                borderRadius: 'var(--radius-sm)',
-                backgroundColor: menuVegFilter === 'veg' ? 'var(--veg-color)' : '',
-                borderColor: menuVegFilter === 'veg' ? 'var(--veg-color)' : '',
-                color: menuVegFilter === 'veg' ? '#fff' : ''
-              }}
-              onClick={() => setMenuVegFilter('veg')}
-            >
-              🟢 Pure Veg
-            </button>
-            <button 
-              className={`btn btn-sm ${menuVegFilter === 'non-veg' ? 'btn-primary' : 'btn-outline'}`}
-              style={{
-                padding: '6px 12px',
-                fontSize: '12px',
-                borderRadius: 'var(--radius-sm)',
-                backgroundColor: menuVegFilter === 'non-veg' ? 'var(--nonveg-color)' : '',
-                borderColor: menuVegFilter === 'non-veg' ? 'var(--nonveg-color)' : '',
-                color: menuVegFilter === 'non-veg' ? '#fff' : ''
-              }}
-              onClick={() => setMenuVegFilter('non-veg')}
-            >
-              🔴 Non-Veg
-            </button>
-          </div>
+        {menu.length === 0 ? (
+          <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>No items found.</p>
+        ) : (
+          (() => {
+            const catDoc = menu[menuEditorCategoryIdx];
+            if (!catDoc) return <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>No category selected.</p>;
+
+            const filteredItems = catDoc.items.filter(item => {
+              if (catDoc.category === 'Roti & Breads' || catDoc.category === 'Beverages') return true;
+              if (menuVegFilter === 'veg') return item.veg;
+              if (menuVegFilter === 'non-veg') return !item.veg;
+              return true;
+            });
+
+            return (
+              <div className="card" style={{ padding: '18px' }}>
+                
+                {filteredItems.length === 0 ? (
+                  <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic', padding: '10px' }}>
+                    No items matching the selected type.
+                  </p>
+                ) : (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '2px solid var(--border-color)', color: 'var(--text-muted)', fontWeight: 'bold' }}>
+                          <th style={{ padding: '10px' }}>Dish Name</th>
+                          <th style={{ padding: '10px' }}>Current Price</th>
+                          <th style={{ padding: '10px', textAlign: 'right' }}>Set New Price</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredItems.map(item => {
+                          const sizesList = item.sizes ? Object.entries(item.sizes) : [];
+
+                          if (sizesList.length > 0) {
+                            return sizesList.map(([sizeName, priceVal]) => {
+                              const inputKey = `${item.name}-${sizeName}`;
+                              const curPriceInput = newPrices[inputKey] || '';
+
+                              return (
+                                <tr key={inputKey} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                                  <td style={{ padding: '10px', fontWeight: 700 }}>
+                                    {item.name} <span style={{ color: 'var(--text-muted)', fontWeight: 'normal', fontSize: '12px' }}>({sizeName})</span>
+                                  </td>
+                                  <td style={{ padding: '10px', fontWeight: 'bold' }}>₹{priceVal}</td>
+                                  <td style={{ padding: '10px', textAlign: 'right', display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                    <span style={{ fontSize: '13px', fontWeight: 'bold' }}>₹</span>
+                                    <input
+                                      type="number"
+                                      className="form-input"
+                                      style={{ width: '80px', padding: '4px 8px', fontSize: '12px', margin: 0 }}
+                                      placeholder="New..."
+                                      value={curPriceInput}
+                                      onChange={(e) => setNewPrices(prev => ({ ...prev, [inputKey]: e.target.value }))}
+                                    />
+                                    <button
+                                      className="btn btn-primary btn-sm"
+                                      style={{ padding: '4px 10px' }}
+                                      onClick={() => {
+                                        handleSavePrice(catDoc.category, item.name, sizeName, curPriceInput);
+                                        setNewPrices(prev => ({ ...prev, [inputKey]: '' }));
+                                      }}
+                                    >
+                                      Save
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            });
+                          }
+
+                          const inputKey = `${item.name}-regular`;
+                          const curPriceInput = newPrices[inputKey] || '';
+
+                          return (
+                            <tr key={inputKey} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                              <td style={{ padding: '10px', fontWeight: 700 }}>{item.name}</td>
+                              <td style={{ padding: '10px', fontWeight: 'bold' }}>₹{item.price}</td>
+                              <td style={{ padding: '10px', textAlign: 'right', display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                <span style={{ fontSize: '13px', fontWeight: 'bold' }}>₹</span>
+                                <input
+                                  type="number"
+                                  className="form-input"
+                                  style={{ width: '80px', padding: '4px 8px', fontSize: '12px', margin: 0 }}
+                                  placeholder="New..."
+                                  value={curPriceInput}
+                                  onChange={(e) => setNewPrices(prev => ({ ...prev, [inputKey]: e.target.value }))}
+                                />
+                                <button
+                                  className="btn btn-primary btn-sm"
+                                  style={{ padding: '4px 10px' }}
+                                  onClick={() => {
+                                    handleSavePrice(catDoc.category, item.name, null, curPriceInput);
+                                    setNewPrices(prev => ({ ...prev, [inputKey]: '' }));
+                                  }}
+                                >
+                                  Save
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            );
+          })()
         )}
-
-        {/* Price Editor table */}
-        <div className="card" style={{ padding: '18px' }}>
-          <h3 style={{ fontSize: '14px', borderBottom: '1px solid var(--border-light)', paddingBottom: '8px', marginBottom: '12px' }}>
-            Modify Prices for {activeCategoryDoc?.category}
-          </h3>
-
-          {!activeCategoryDoc ? (
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>No items found.</p>
-          ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
-                <thead>
-                  <tr style={{ borderBottom: '2px solid var(--border-color)', color: 'var(--text-muted)', fontWeight: 'bold' }}>
-                    <th style={{ padding: '10px' }}>Dish Name</th>
-                    <th style={{ padding: '10px' }}>Veg Indicator</th>
-                    <th style={{ padding: '10px' }}>Size / Variation</th>
-                    <th style={{ padding: '10px' }}>Current Price</th>
-                    <th style={{ padding: '10px', textAlign: 'right' }}>Set New Price</th>
-                  </tr>
-                </thead>
-                <tbody>
-                {(() => {
-                  const filteredMenuItems = activeCategoryDoc.items.filter(i => {
-                    if (menuVegFilter === 'veg') return i.veg;
-                    if (menuVegFilter === 'non-veg') return !i.veg;
-                    return true;
-                  });
-                  return filteredMenuItems.map(item => {
-                    const sizesList = item.sizes ? Object.entries(item.sizes) : [];
-                    const isRotiOrBeverage = activeCategoryDoc.category === 'Roti & Breads' || activeCategoryDoc.category === 'Beverages';
-                    
-                    if (sizesList.length > 0) {
-                      return sizesList.map(([sizeName, priceVal]) => {
-                        const inputKey = `${item.name}-${sizeName}`;
-                        const curPriceInput = newPrices[inputKey] || '';
-                        
-                        return (
-                          <tr key={inputKey} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                            <td style={{ padding: '10px', fontWeight: 700 }}>{item.name}</td>
-                            <td style={{ padding: '10px' }}>
-                              {!isRotiOrBeverage && (
-                                <span style={{ color: item.veg ? 'var(--veg-color)' : 'var(--nonveg-color)', fontWeight: 'bold' }}>
-                                  {item.veg ? '🟢 Veg' : '🔴 Non-Veg'}
-                                </span>
-                              )}
-                            </td>
-                            <td style={{ padding: '10px' }}>
-                              <span className="room-badge room-color-3" style={{ fontSize: '10px' }}>{sizeName}</span>
-                            </td>
-                            <td style={{ padding: '10px', fontWeight: 'bold' }}>₹{priceVal}</td>
-                            <td style={{ padding: '10px', textAlign: 'right', display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                              <span style={{ fontSize: '13px', fontWeight: 'bold' }}>₹</span>
-                              <input 
-                                type="number" 
-                                className="form-input"
-                                style={{ width: '80px', padding: '4px 8px', fontSize: '12px', margin: 0 }}
-                                placeholder="New..." 
-                                value={curPriceInput}
-                                onChange={(e) => setNewPrices(prev => ({ ...prev, [inputKey]: e.target.value }))}
-                              />
-                              <button 
-                                className="btn btn-primary btn-sm"
-                                style={{ padding: '4px 10px' }}
-                                onClick={() => {
-                                  handleSavePrice(activeCategoryDoc.category, item.name, sizeName, curPriceInput);
-                                  setNewPrices(prev => ({ ...prev, [inputKey]: '' }));
-                                }}
-                              >
-                                Save
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      });
-                    }
-
-                    const inputKey = `${item.name}-regular`;
-                    const curPriceInput = newPrices[inputKey] || '';
-
-                    return (
-                      <tr key={inputKey} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                        <td style={{ padding: '10px', fontWeight: 700 }}>{item.name}</td>
-                        <td style={{ padding: '10px' }}>
-                          {!isRotiOrBeverage && (
-                            <span style={{ color: item.veg ? 'var(--veg-color)' : 'var(--nonveg-color)', fontWeight: 'bold' }}>
-                              {item.veg ? '🟢 Veg' : '🔴 Non-Veg'}
-                            </span>
-                          )}
-                        </td>
-                        <td style={{ padding: '10px', color: 'var(--text-muted)', fontSize: '11px' }}>Regular</td>
-                        <td style={{ padding: '10px', fontWeight: 'bold' }}>₹{item.price}</td>
-                        <td style={{ padding: '10px', textAlign: 'right', display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                          <span style={{ fontSize: '13px', fontWeight: 'bold' }}>₹</span>
-                          <input 
-                            type="number" 
-                            className="form-input"
-                            style={{ width: '80px', padding: '4px 8px', fontSize: '12px', margin: 0 }}
-                            placeholder="New..." 
-                            value={curPriceInput}
-                            onChange={(e) => setNewPrices(prev => ({ ...prev, [inputKey]: e.target.value }))}
-                          />
-                          <button 
-                            className="btn btn-primary btn-sm"
-                            style={{ padding: '4px 10px' }}
-                            onClick={() => {
-                              handleSavePrice(activeCategoryDoc.category, item.name, null, curPriceInput);
-                              setNewPrices(prev => ({ ...prev, [inputKey]: '' }));
-                            }}
-                          >
-                            Save
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  });
-                })()}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
       </div>
     );
   }
@@ -570,25 +575,61 @@ export default function AdminView({ viewsTab, bills = [], menu = [], staffUsers 
     const savedName = sessionStorage.getItem('sss_staff_name') || '';
     return (
       <div className="fade-in" style={{ paddingBottom: '40px' }}>
-        <h2 style={{ fontSize: '18px', fontWeight: 800, marginBottom: '20px' }}>Staff Accounts & Permissions</h2>
 
         <div className="stats-summary" style={{ marginBottom: '24px' }}>
-          <div className="stat-card">
-            <p>Active Staff</p>
-            <p>{staffUsers.length}</p>
+          <div
+            className="stat-card"
+            style={{
+              cursor: 'pointer',
+              border: staffSubTab === 'active' ? '2px solid var(--primary)' : '1px solid var(--border-color)',
+              transform: staffSubTab === 'active' ? 'scale(1.02)' : 'none',
+              transition: 'all 0.2s ease',
+              backgroundColor: staffSubTab === 'active' ? 'var(--primary-light)' : '#fff'
+            }}
+            onClick={() => setStaffSubTab('active')}
+          >
+            <p style={{ fontWeight: 'bold' }}>Active Staff 👥</p>
+            <p style={{ fontSize: '24px', fontWeight: 900, color: 'var(--primary)' }}>{staffUsers.length}</p>
           </div>
-          <div className="stat-card">
-            <p>Pending Requests</p>
-            <p style={{ color: pendingRegistrations.length > 0 ? 'var(--primary)' : 'var(--text-muted)' }}>
-              {pendingRegistrations.length}
-            </p>
+          <div
+            className="stat-card"
+            style={{
+              cursor: 'pointer',
+              border: staffSubTab === 'pending' ? '2px solid var(--primary)' : '1px solid var(--border-color)',
+              transform: staffSubTab === 'pending' ? 'scale(1.02)' : 'none',
+              transition: 'all 0.2s ease',
+              backgroundColor: staffSubTab === 'pending' ? 'var(--primary-light)' : '#fff'
+            }}
+            onClick={() => setStaffSubTab('pending')}
+          >
+            <p style={{ fontWeight: 'bold' }}>Pending Requests ⏳</p>
+            <p style={{
+              fontSize: '24px',
+              fontWeight: 900,
+              color: pendingRegistrations.length > 0 ? 'var(--primary)' : 'var(--text-muted)'
+            }}>{pendingRegistrations.length}</p>
+          </div>
+          <div
+            className="stat-card"
+            style={{
+              cursor: 'pointer',
+              border: staffSubTab === 'add_staff' ? '2px solid var(--primary)' : '1px solid var(--border-color)',
+              transform: staffSubTab === 'add_staff' ? 'scale(1.02)' : 'none',
+              transition: 'all 0.2s ease',
+              backgroundColor: staffSubTab === 'add_staff' ? 'var(--primary-light)' : '#fff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: '82px'
+            }}
+            onClick={() => setStaffSubTab('add_staff')}
+          >
+            <p style={{ fontWeight: 'bold', color: 'var(--primary)' }}>Add Staff</p>
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px', marginBottom: '24px' }}>
-          {/* Pending Approvals */}
+        {staffSubTab === 'pending' && (
           <div style={{ backgroundColor: '#fff', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '18px', boxShadow: 'var(--shadow-sm)' }}>
-            <h3 style={{ fontSize: '14px', borderBottom: '1px solid var(--border-light)', paddingBottom: '8px', marginBottom: '12px' }}>Pending Registration Approvals</h3>
             {pendingRegistrations.length === 0 ? (
               <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic' }}>No pending registrations.</p>
             ) : (
@@ -623,39 +664,39 @@ export default function AdminView({ viewsTab, bills = [], menu = [], staffUsers 
               </div>
             )}
           </div>
+        )}
 
-          {/* Add Staff Directly */}
+        {staffSubTab === 'add_staff' && (
           <div style={{ backgroundColor: '#fff', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '18px', boxShadow: 'var(--shadow-sm)' }}>
-            <h3 style={{ fontSize: '14px', borderBottom: '1px solid var(--border-light)', paddingBottom: '8px', marginBottom: '12px' }}>Add Staff Directly</h3>
             <form onSubmit={handleDirectRegister} style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '400px' }}>
               <div className="input-group" style={{ marginBottom: 0 }}>
                 <label>Username</label>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  style={{ padding: '8px 12px', fontSize: '13px' }} 
-                  placeholder="e.g. chef2" 
+                <input
+                  type="text"
+                  className="form-input"
+                  style={{ padding: '8px 12px', fontSize: '13px' }}
+                  placeholder="e.g. chef2"
                   value={directUser}
                   onChange={(e) => setDirectUser(e.target.value)}
-                  required 
+                  required
                 />
               </div>
               <div className="input-group" style={{ marginBottom: 0 }}>
                 <label>Password</label>
-                <input 
-                  type="password" 
-                  className="form-input" 
-                  style={{ padding: '8px 12px', fontSize: '13px' }} 
-                  placeholder="Enter password..." 
+                <input
+                  type="password"
+                  className="form-input"
+                  style={{ padding: '8px 12px', fontSize: '13px' }}
+                  placeholder="Enter password..."
                   value={directPass}
                   onChange={(e) => setDirectPass(e.target.value)}
-                  required 
+                  required
                 />
               </div>
               <div className="input-group" style={{ marginBottom: 0 }}>
                 <label>Role</label>
-                <select 
-                  className="form-input" 
+                <select
+                  className="form-input"
                   style={{ padding: '8px 12px', fontSize: '13px' }}
                   value={directRole}
                   onChange={(e) => setDirectRole(e.target.value)}
@@ -666,47 +707,49 @@ export default function AdminView({ viewsTab, bills = [], menu = [], staffUsers 
                   <option value="admin">Admin</option>
                 </select>
               </div>
-              <button type="submit" className="btn btn-primary btn-sm" style={{ width: 'fit-content', marginTop: '4px' }}>Register Account</button>
+              <button type="submit" className="btn btn-primary btn-sm" style={{ width: 'fit-content', marginTop: '4px' }}>Register</button>
             </form>
           </div>
-        </div>
+        )}
 
-        {/* Registered Active Staff List */}
-        <div style={{ backgroundColor: '#fff', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '18px', boxShadow: 'var(--shadow-sm)' }}>
-          <h3 style={{ fontSize: '14px', borderBottom: '1px solid var(--border-light)', paddingBottom: '8px', marginBottom: '12px' }}>Active Registered Staff</h3>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
-              <thead>
-                <tr style={{ borderBottom: '2px solid var(--border-color)', color: 'var(--text-muted)', fontWeight: 'bold' }}>
-                  <th style={{ padding: '8px' }}>Username</th>
-                  <th style={{ padding: '8px' }}>Password (Visible to Admin)</th>
-                  <th style={{ padding: '8px' }}>Role</th>
-                  <th style={{ padding: '8px', textAlign: 'right' }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {staffUsers.map(u => (
-                  <tr key={u.username} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                    <td style={{ padding: '8px', fontWeight: 700 }}>{u.username}</td>
-                    <td style={{ padding: '8px', fontFamily: 'monospace' }}>{u.password}</td>
-                    <td style={{ padding: '8px' }}>
-                      <span className={`room-badge room-color-${u.role === 'admin' ? '5' : (u.role === 'cook' ? '1' : '2')}`}>
-                        {u.role.toUpperCase()}
-                      </span>
-                    </td>
-                    <td style={{ padding: '8px', textAlign: 'right' }}>
-                      {savedName.toLowerCase() === u.username.toLowerCase() ? (
-                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic' }}>Self (Logged In)</span>
-                      ) : (
-                        <button className="btn btn-danger btn-sm" style={{ padding: '4px 10px' }} onClick={() => handleDeleteUser(u.username)}>Delete 🗑️</button>
-                      )}
-                    </td>
+        {staffSubTab === 'active' && (
+          <div style={{ backgroundColor: '#fff', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '18px', boxShadow: 'var(--shadow-sm)' }}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid var(--border-color)', color: 'var(--text-muted)', fontWeight: 'bold' }}>
+                    <th style={{ padding: '8px' }}>Username</th>
+                    <th style={{ padding: '8px' }}>Password (Visible to Admin)</th>
+                    <th style={{ padding: '8px' }}>Account Role</th>
+                    <th style={{ padding: '8px', textAlign: 'right' }}>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {staffUsers.map(u => (
+                    <tr key={u.username} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                      <td style={{ padding: '8px', fontWeight: 700 }}>{u.username}</td>
+                      <td style={{ padding: '8px', fontFamily: 'monospace', color: 'var(--text-muted)' }}>{u.password}</td>
+                      <td style={{ padding: '8px' }}>
+                        <span className={`room-badge room-color-${u.role === 'admin' ? '5' : (u.role === 'cook' ? '1' : '2')}`}>
+                          {u.role.toUpperCase()}
+                        </span>
+                      </td>
+                      <td style={{ padding: '8px', textAlign: 'right' }}>
+                        <button
+                          className="btn btn-danger btn-sm"
+                          style={{ padding: '4px 10px' }}
+                          onClick={() => handleDeleteUser(u.username)}
+                        >
+                          Delete Account
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     );
   }
@@ -721,11 +764,11 @@ export default function AdminView({ viewsTab, bills = [], menu = [], staffUsers 
             To test scanning QR codes with mobile devices, type your computer's local Wi-Fi IP address below (e.g. <code>192.168.1.15:3000</code>). Emojis and codes will automatically update.
           </p>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            <input 
-              type="text" 
-              className="form-input" 
+            <input
+              type="text"
+              className="form-input"
               style={{ maxWidth: '280px', margin: 0 }}
-              placeholder="e.g. 192.168.1.15:3000" 
+              placeholder="e.g. 192.168.1.15:3000"
               value={qrBaseOverride}
               onChange={(e) => setQrBaseOverride(e.target.value)}
             />
@@ -737,10 +780,10 @@ export default function AdminView({ viewsTab, bills = [], menu = [], staffUsers 
           {rooms.map(rId => (
             <div key={rId} className="qr-card-print-block">
               {/* Local canvas for QR drawing */}
-              <canvas 
+              <canvas
                 ref={el => qrCanvasRefs.current[rId] = el}
-                width="400" 
-                height="520" 
+                width="400"
+                height="520"
                 style={{ width: '100%', maxWidth: '300px', display: 'block', margin: '0 auto', border: '1px solid var(--border-color)', borderRadius: '8px', boxShadow: 'var(--shadow-sm)' }}
               />
               <div className="no-print" style={{ textAlign: 'center', marginTop: '10px' }}>

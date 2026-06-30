@@ -179,9 +179,21 @@ export default function CustomerView({ roomId, menu, activeTab, onOrderSubmit, o
     <div style={{ paddingBottom: cartTotalQty > 0 ? '90px' : '40px' }}>
       <header className="header">
         <div className="header-content">
-          <div className="header-brand">
-            <h1>SSS Family Restaurant</h1>
-            <p>{isReadOnly ? 'Beside Reliance Smart, Ranastalam' : `Table ${roomId === 'takeaway' ? 'Table ' : ''}${roomId}`}</p>
+          <div className="header-brand" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <img
+              src="/logo.jpg"
+              alt="SSS Logo"
+              style={{ width: '40px', height: '40px', borderRadius: '50%', border: '2px solid var(--primary)', objectFit: 'cover' }}
+            />
+            <div>
+              <h1 style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                SSS Family Restaurant
+                <span style={{ fontSize: '13px', fontWeight: 'normal', opacity: 0.8, color: 'var(--text-muted)' }}>
+                  📞 9985177939
+                </span>
+              </h1>
+              <p>{isReadOnly ? 'Beside Reliance Smart, Ranastalam' : `Table ${roomId === 'takeaway' ? 'Table ' : ''}${roomId}`}</p>
+            </div>
           </div>
           <button className="btn btn-outline btn-sm" onClick={onStaffPortalClick}>Login</button>
         </div>
@@ -194,7 +206,6 @@ export default function CustomerView({ roomId, menu, activeTab, onOrderSubmit, o
             <h3 style={{ fontFamily: 'Outfit', fontWeight: 800, fontSize: '16px', marginBottom: '6px' }}>🍽️ Welcome to our Digital Menu Catalog</h3>
             <p style={{ fontSize: '12px', lineHeight: '1.4' }}>To place an order from your table, please scan the QR code located on your table or ask a waiter to add it for you.</p>
             <p style={{ fontSize: '13px', fontWeight: 'bold', marginTop: '10px', display: 'flex', justifyContent: 'center', gap: '12px' }}>
-              <span>📞 Phone: 9985177939</span>
             </p>
           </div>
         )}
@@ -387,7 +398,7 @@ export default function CustomerView({ roomId, menu, activeTab, onOrderSubmit, o
               style={{ width: '100%', marginTop: '16px' }}
               onClick={handleSubmitOrder}
             >
-              Place Cooking Order 👨‍🍳
+              Order
             </button>
           </div>
         </div>

@@ -14,13 +14,13 @@ app.use(express.json());
 
 // Login Handler
 app.post('/api/auth/login', async (req, res) => {
-  const { username, password, role } = req.body;
+  const { username, password } = req.body;
   try {
-    const user = await db.findUser(username, role);
+    const user = await db.findUser(username);
     if (user && user.password === password) {
       return res.json({ success: true, username: user.username, role: user.role });
     }
-    return res.status(401).json({ error: 'Invalid username or password for this role.' });
+    return res.status(401).json({ error: 'Invalid username or password.' });
   } catch (err) {
     return res.status(500).json({ error: 'Server authentication error.' });
   }
