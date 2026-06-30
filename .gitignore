@@ -1,0 +1,22 @@
+# Node dependencies
+node_modules/
+
+# Production build output
+dist/
+
+# Local fallback database (contains credentials & logs)
+restaurant_db.json
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE configurations
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
