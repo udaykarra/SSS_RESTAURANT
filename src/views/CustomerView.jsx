@@ -202,12 +202,9 @@ export default function CustomerView({ roomId, menu, activeTab, onOrderSubmit, o
       {/* Main Container */}
       <main className="container">
         {isReadOnly && (
-          <div className="card text-center fade-in no-print" style={{ margin: '0 auto 20px', padding: '20px', maxWidth: '600px', backgroundColor: '#fdf2e9', borderColor: '#fad7b7', color: '#7d3c00' }}>
-            <h3 style={{ fontFamily: 'Outfit', fontWeight: 800, fontSize: '16px', marginBottom: '6px' }}>🍽️ Welcome to our Digital Menu Catalog</h3>
-            <p style={{ fontSize: '12px', lineHeight: '1.4' }}>To place an order from your table, please scan the QR code located on your table or ask a waiter to add it for you.</p>
-            <p style={{ fontSize: '13px', fontWeight: 'bold', marginTop: '10px', display: 'flex', justifyContent: 'center', gap: '12px' }}>
-            </p>
-          </div>
+          <h2 className="title-font fade-in no-print notice-heading">
+            🛎️ To place an order from your table, please scan the QR code located on your table or ask a waiter to add it for you.
+          </h2>
         )}
         {/* Search menu */}
         <div className="menu-filters">
@@ -221,34 +218,6 @@ export default function CustomerView({ roomId, menu, activeTab, onOrderSubmit, o
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-
-          {/* Veg filters (HIDDEN on Breads and Beverages) */}
-          {selectedCategory !== 'Roti & Breads' && selectedCategory !== 'Beverages' && (
-            <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-              <button
-                className={`btn btn-sm ${vegFilter === 'veg' ? 'btn-primary' : 'btn-outline'}`}
-                style={{
-                  backgroundColor: vegFilter === 'veg' ? 'var(--veg-color)' : '',
-                  borderColor: vegFilter === 'veg' ? 'var(--veg-color)' : '',
-                  color: vegFilter === 'veg' ? '#fff' : ''
-                }}
-                onClick={() => setVegFilter('veg')}
-              >
-                🟢 Pure Veg
-              </button>
-              <button
-                className={`btn btn-sm ${vegFilter === 'non-veg' ? 'btn-primary' : 'btn-outline'}`}
-                style={{
-                  backgroundColor: vegFilter === 'non-veg' ? 'var(--nonveg-color)' : '',
-                  borderColor: vegFilter === 'non-veg' ? 'var(--nonveg-color)' : '',
-                  color: vegFilter === 'non-veg' ? '#fff' : ''
-                }}
-                onClick={() => setVegFilter('non-veg')}
-              >
-                🔴 Non-Veg
-              </button>
-            </div>
-          )}
         </div>
 
         {/* Categories Scroll bar */}
@@ -265,6 +234,36 @@ export default function CustomerView({ roomId, menu, activeTab, onOrderSubmit, o
             ))}
           </div>
         </div>
+
+        {/* Veg filters (HIDDEN on Breads and Beverages) inbetween menu bar and menu items */}
+        {selectedCategory !== 'Roti & Breads' && selectedCategory !== 'Beverages' && (
+          <div style={{ display: 'flex', gap: '8px', margin: '14px 0 6px 0' }}>
+            <button
+              className={`btn btn-sm ${vegFilter === 'veg' ? 'btn-primary' : 'btn-outline'}`}
+              style={{
+                flex: 1,
+                backgroundColor: vegFilter === 'veg' ? 'var(--veg-color)' : '',
+                borderColor: vegFilter === 'veg' ? 'var(--veg-color)' : '',
+                color: vegFilter === 'veg' ? '#fff' : ''
+              }}
+              onClick={() => setVegFilter('veg')}
+            >
+              🟢 Pure Veg
+            </button>
+            <button
+              className={`btn btn-sm ${vegFilter === 'non-veg' ? 'btn-primary' : 'btn-outline'}`}
+              style={{
+                flex: 1,
+                backgroundColor: vegFilter === 'non-veg' ? 'var(--nonveg-color)' : '',
+                borderColor: vegFilter === 'non-veg' ? 'var(--nonveg-color)' : '',
+                color: vegFilter === 'non-veg' ? '#fff' : ''
+              }}
+              onClick={() => setVegFilter('non-veg')}
+            >
+              🔴 Non-Veg
+            </button>
+          </div>
+        )}
 
         {/* Menu Items Grid */}
         <div className="menu-sections fade-in" style={{ marginTop: '20px' }}>
