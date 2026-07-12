@@ -228,9 +228,13 @@ export default function App() {
     } else if (target === 'staff=login') {
       window.history.pushState({}, '', '/?staff=login');
       setStaffRoute(true);
+      setCurrentRoomId(null);
+      setSelectedStaffRoom(null);
     } else if (target === 'staff=dashboard') {
       window.history.pushState({}, '', '/?staff=dashboard');
       setStaffRoute(true);
+      setCurrentRoomId(null);
+      setSelectedStaffRoom(null);
     }
   };
 
