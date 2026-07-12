@@ -10,6 +10,7 @@ export default function CustomerView({ roomId, menu, activeTab, onOrderSubmit, o
   const [cart, setCart] = useState([]); // Array of { name, veg, category, price, size, qty, notes, lineId }
   const [itemSizes, setItemSizes] = useState({}); // key: itemName, value: sizeSelected
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isActiveOrderOpen, setIsActiveOrderOpen] = useState(false);
   const [cartNotes, setCartNotes] = useState('');
 
   // Order status page states
@@ -92,7 +93,8 @@ export default function CustomerView({ roomId, menu, activeTab, onOrderSubmit, o
       size: i.size || '',
       notes: cartNotes.trim() || '',
       source: 'customer',
-      done: false
+      done: false,
+      sentToCook: true
     }));
 
     onOrderSubmit(formattedItems);
@@ -195,8 +197,18 @@ export default function CustomerView({ roomId, menu, activeTab, onOrderSubmit, o
               <p>{isReadOnly ? 'Beside Reliance Smart, Ranastalam' : `Table ${roomId === 'takeaway' ? 'Table ' : ''}${roomId}`}</p>
             </div>
           </div>
-          {isReadOnly && (
+          {isReadOnly ? (
             <button className="btn btn-outline btn-sm" onClick={onStaffPortalClick}>Login</button>
+          ) : (
+            activeTab && activeTab.items && activeTab.items.length > 0 && (
+              <button 
+                className="btn btn-outline btn-sm" 
+                onClick={() => setIsActiveOrderOpen(true)}
+                style={{ color: 'var(--primary)', borderColor: 'var(--primary)', textTransform: 'none' }}
+              >
+                Ordered Items 🧾 ({activeTab.items.length})
+              </button>
+            )
           )}
         </div>
       </header>
@@ -401,6 +413,58 @@ export default function CustomerView({ roomId, menu, activeTab, onOrderSubmit, o
               onClick={handleSubmitOrder}
             >
               Order
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Active Orders Review Modal */}
+      {isActiveOrderOpen && activeTab && activeTab.items && (
+        <div className="overlay" onClick={() => setIsActiveOrderOpen(false)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-header">
+              <h2 className="sheet-title">Active Orders - Table {roomId === 'takeaway' ? 'Takeaway' : roomId}</h2>
+              <button className="close-btn" onClick={() => setIsActiveOrderOpen(false)}>&times;</button>
+            </div>
+
+            <div className="sheet-body">
+              <div className="cart-items-list">
+                {activeTab.items.map((item, idx) => (
+                  <div key={item.lineId || idx} className="cart-line">
+                    <div className="cart-line-details">
+                      <h4 style={{ fontSize: '13px', fontWeight: 700 }}>
+                        {item.qty}x {item.name} {item.size && `(${item.size})`}
+                      </h4>
+                      <p style={{ fontSize: '11px', marginTop: '4px', display: 'flex', gap: '6px', alignItems: 'center' }}>
+                        <span>Status:</span>
+                        {item.served ? (
+                          <span style={{ color: 'var(--veg-color)', fontWeight: 'bold' }}>Served ✅</span>
+                        ) : item.done ? (
+                          <span style={{ color: 'var(--primary)', fontWeight: 'bold' }}>Ready to Serve 🛎️</span>
+                        ) : (
+                          <span style={{ color: 'var(--nonveg-color)', fontWeight: 'bold' }}>Cooking 👨‍🍳</span>
+                        )}
+                      </p>
+                    </div>
+                    <span className="cart-line-price">₹{item.price * item.qty}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ borderTop: '2px dashed var(--border-color)', marginTop: '20px', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontWeight: 700, fontSize: '13px' }}>Current Tab Total:</span>
+                <span style={{ fontSize: '18px', fontWeight: 900, color: 'var(--primary)' }}>
+                  ₹{activeTab.items.reduce((sum, i) => sum + (i.price * i.qty), 0)}
+                </span>
+              </div>
+            </div>
+
+            <button
+              className="btn btn-outline"
+              style={{ width: '100%' }}
+              onClick={() => setIsActiveOrderOpen(false)}
+            >
+              Close
             </button>
           </div>
         </div>

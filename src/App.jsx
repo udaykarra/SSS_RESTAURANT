@@ -410,7 +410,7 @@ export default function App() {
           menu={menu}
           activeTab={currentRoomId ? activeRoomTabs[currentRoomId] : null}
           onOrderSubmit={async (items) => {
-            const res = await fetch(`/api/tabs/${currentRoomId}`, {
+            const res = await fetch(`/api/tabs/${currentRoomId}/append`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ items })

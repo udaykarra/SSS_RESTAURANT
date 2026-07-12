@@ -184,6 +184,18 @@ app.post('/api/tabs/:roomId', async (req, res) => {
   }
 });
 
+// Append Items to Room Tab (Customer ordering)
+app.post('/api/tabs/:roomId/append', async (req, res) => {
+  const { roomId } = req.params;
+  const { items } = req.body;
+  try {
+    const tab = await db.appendTab(roomId, items);
+    return res.json(tab);
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to append items to tab.' });
+  }
+});
+
 // Mark Individual Cook Item portion as Done
 app.post('/api/tabs/:roomId/item-done', async (req, res) => {
   const { roomId } = req.params;

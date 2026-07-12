@@ -557,6 +557,33 @@ export const db = {
     }
   },
 
+  appendTab: async (roomId, newItems) => {
+    if (useMongo) {
+      let tab = await ActiveTab.findOne({ roomId });
+      if (tab) {
+        tab.items.push(...newItems);
+      } else {
+        tab = new ActiveTab({ roomId, items: newItems });
+      }
+      await tab.save();
+      return tab;
+    } else {
+      const data = readLocalDb();
+      const existingTab = data.active_tabs[roomId];
+      if (existingTab) {
+        existingTab.items = [...existingTab.items, ...newItems];
+      } else {
+        data.active_tabs[roomId] = {
+          roomId,
+          items: newItems,
+          createdAt: new Date().toISOString()
+        };
+      }
+      writeLocalDb(data);
+      return data.active_tabs[roomId];
+    }
+  },
+
   markItemDone: async (roomId, lineId) => {
     if (useMongo) {
       const tab = await ActiveTab.findOne({ roomId });
