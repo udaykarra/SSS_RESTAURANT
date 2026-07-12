@@ -281,6 +281,16 @@ export default function App() {
                     <span className="dot"></span>
                     <span>LIVE</span>
                   </div>
+                  <button 
+                    className="btn btn-outline btn-sm" 
+                    onClick={() => {
+                      playNotificationSound();
+                      showToast("🔊 Sound alerts enabled & tested!");
+                    }}
+                    style={{ borderColor: 'var(--primary)', color: 'var(--primary)' }}
+                  >
+                    🔊 Test Sound
+                  </button>
                   <button className="btn btn-outline btn-sm" onClick={() => {
                     sessionStorage.clear();
                     setRole(null);
@@ -421,6 +431,7 @@ export default function App() {
             });
             if (res.ok) {
               pollServerData();
+              playNotificationSound();
               showToast("👨‍🍳 Order placed! Cooking in progress.");
             }
           }}
