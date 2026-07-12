@@ -195,7 +195,9 @@ export default function CustomerView({ roomId, menu, activeTab, onOrderSubmit, o
               <p>{isReadOnly ? 'Beside Reliance Smart, Ranastalam' : `Table ${roomId === 'takeaway' ? 'Table ' : ''}${roomId}`}</p>
             </div>
           </div>
-          <button className="btn btn-outline btn-sm" onClick={onStaffPortalClick}>Login</button>
+          {isReadOnly && (
+            <button className="btn btn-outline btn-sm" onClick={onStaffPortalClick}>Login</button>
+          )}
         </div>
       </header>
 
@@ -350,51 +352,52 @@ export default function CustomerView({ roomId, menu, activeTab, onOrderSubmit, o
 
       {/* Cart Sheet Drawer Modal */}
       {isCartOpen && (
-        <div className="receipt-modal-overlay" onClick={() => setIsCartOpen(false)}>
-          <div className="receipt-modal-container card fade-in" style={{ width: '90%', maxWidth: '440px' }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1.5px solid var(--border-color)', paddingBottom: '12px', marginBottom: '16px' }}>
-              <h2 style={{ fontFamily: 'Outfit', fontWeight: 900, fontSize: '18px' }}>Your Order Review</h2>
-              <button className="btn btn-outline btn-sm" style={{ padding: '2px 8px' }} onClick={() => setIsCartOpen(false)}>Close</button>
+        <div className="overlay" onClick={() => setIsCartOpen(false)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-header">
+              <h2 className="sheet-title">Your Order Review</h2>
+              <button className="close-btn" onClick={() => setIsCartOpen(false)}>&times;</button>
             </div>
 
-            <div className="cart-items-list" style={{ maxHeight: '250px', overflowY: 'auto' }}>
-              {cart.map(item => (
-                <div key={item.lineId} className="cart-line">
-                  <div>
-                    <h4 style={{ fontSize: '13px', fontWeight: 700 }}>
-                      {item.name} {item.size && `(${item.size})`}
-                    </h4>
-                    <span style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: 'bold' }}>₹{item.price * item.qty}</span>
+            <div className="sheet-body">
+              <div className="cart-items-list">
+                {cart.map(item => (
+                  <div key={item.lineId} className="cart-line">
+                    <div className="cart-line-details">
+                      <h4>
+                        {item.name} {item.size && `(${item.size})`}
+                      </h4>
+                      <span className="cart-line-price">₹{item.price * item.qty}</span>
+                    </div>
+                    <div className="stepper">
+                      <button className="stepper-btn" onClick={() => updateCartQty(item.lineId, -1)}>-</button>
+                      <span className="stepper-val">{item.qty}</span>
+                      <button className="stepper-btn" onClick={() => updateCartQty(item.lineId, 1)}>+</button>
+                    </div>
                   </div>
-                  <div className="stepper">
-                    <button className="stepper-btn" onClick={() => updateCartQty(item.lineId, -1)}>-</button>
-                    <span className="stepper-val">{item.qty}</span>
-                    <button className="stepper-btn" onClick={() => updateCartQty(item.lineId, 1)}>+</button>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
 
-            <div style={{ marginTop: '16px' }}>
-              <label style={{ fontSize: '11px', fontWeight: 700, display: 'block', marginBottom: '6px' }}>Special Requests / Notes</label>
-              <textarea
-                className="form-input"
-                rows="2"
-                placeholder="e.g. less spicy, extra spoons..."
-                value={cartNotes}
-                onChange={(e) => setCartNotes(e.target.value)}
-                style={{ fontSize: '12px', resize: 'none' }}
-              />
-            </div>
+              <div style={{ marginTop: '16px' }}>
+                <label style={{ fontSize: '11px', fontWeight: 700, display: 'block', marginBottom: '6px' }}>Special Requests / Notes</label>
+                <textarea
+                  className="notes-area"
+                  rows="2"
+                  placeholder="e.g. less spicy, extra spoons..."
+                  value={cartNotes}
+                  onChange={(e) => setCartNotes(e.target.value)}
+                />
+              </div>
 
-            <div style={{ borderTop: '2px dashed var(--border-color)', marginTop: '16px', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontWeight: 700, fontSize: '13px' }}>Subtotal Amount:</span>
-              <span style={{ fontSize: '18px', fontWeight: 900, color: 'var(--primary)' }}>₹{cartTotalVal}</span>
+              <div style={{ borderTop: '2px dashed var(--border-color)', marginTop: '16px', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontWeight: 700, fontSize: '13px' }}>Subtotal Amount:</span>
+                <span style={{ fontSize: '18px', fontWeight: 900, color: 'var(--primary)' }}>₹{cartTotalVal}</span>
+              </div>
             </div>
 
             <button
               className="btn btn-primary"
-              style={{ width: '100%', marginTop: '16px' }}
+              style={{ width: '100%' }}
               onClick={handleSubmitOrder}
             >
               Order
